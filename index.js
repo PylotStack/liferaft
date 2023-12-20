@@ -37,7 +37,7 @@ const change = require('modification')(' change');
  *
  * @private
  */
-function nope() {}
+function nope() { }
 
 /**
  * Representation of a single raft node in the cluster.
@@ -168,6 +168,12 @@ class Raft extends EventEmitter {
       // If the raft receives a request with a stale term number it should be
       // rejected.
       //
+      // console.log(`${raft.address} received packet from ${packet.address} with term ${packet.term}|${packet.state}|${packet.last?.index} and current term ${raft.term}|${raft.state}`);
+      const matchingNode = raft.nodes.find(node => node.address === packet.address);
+      if (!matchingNode) {
+        console.warn(`${raft.address} received packet from ${packet.address} but it is not in the cluster. Adding it to the cluster`);
+        raft.join(packet.address, write);
+      }
       if (packet.term > raft.term) {
         raft.change({
           leader: Raft.LEADER === packet.state ? packet.address : packet.leader || raft.leader,
@@ -175,7 +181,7 @@ class Raft extends EventEmitter {
           term: packet.term
         });
       } else if (packet.term < raft.term) {
-        reason = 'Stale term detected, received `'+ packet.term +'` we are at '+ raft.term;
+        reason = 'Stale term detected, received `' + packet.term + '` we are at ' + raft.term;
         raft.emit('error', new Error(reason));
 
         return write(raft.packet('error', reason));
@@ -252,7 +258,7 @@ class Raft extends EventEmitter {
           // and invalidates the request we just got, so that's silly willy.
           //
           raft.heartbeat(raft.timeout());
-        break;
+          break;
 
         //
         // A new incoming vote.
@@ -290,18 +296,18 @@ class Raft extends EventEmitter {
           // Empty write, nothing to do.
           //
           write();
-        break;
+          break;
 
         case 'error':
           raft.emit('error', new Error(packet.data));
-        break;
+          break;
 
         case 'append':
           if (!raft.log) {
             return;
           }
 
-          const {term, index} = await raft.log.getLastInfo();
+          const { term, index } = await raft.log.getLastInfo();
 
           // We do not have the last index as our last entry
           // Look back in log in case we have it previously
@@ -331,7 +337,7 @@ class Raft extends EventEmitter {
             const entries = await raft.log.getUncommittedEntriesUpToIndex(packet.last.committedIndex, packet.last.term);
             raft.commitEntries(entries);
           }
-        break;
+          break;
 
         case 'append ack':
           const entry = await raft.log.commandAck(packet.data.index, packet.address);
@@ -339,19 +345,19 @@ class Raft extends EventEmitter {
             const entries = await raft.log.getUncommittedEntriesUpToIndex(entry.index, entry.term);
             raft.commitEntries(entries);
           }
-        break;
+          break;
 
         case 'append fail':
           const previousEntry = await raft.log.get(packet.data.index);
           const append = await raft.appendPacket(previousEntry);
           write(append);
-        break;
+          break;
 
         //
         // RPC command
         //
         case 'exec':
-        break;
+          break;
 
         //
         // Unknown event, we have no idea how to process this so we're going to
@@ -361,8 +367,8 @@ class Raft extends EventEmitter {
           if (raft.listeners('rpc').length) {
             raft.emit('rpc', packet, write);
           } else {
-            write(await raft.packet('error', 'Unknown message type: '+ packet.type));
-        }
+            write(await raft.packet('error', 'Unknown message type: ' + packet.type));
+          }
       }
     });
 
@@ -464,7 +470,7 @@ class Raft extends EventEmitter {
       var next = one(function force(err, data) {
         if (!raft.timers) return; // We're been destroyed, ignore all.
 
-        raft.timers.setImmediate(uuid +'@async', function async() {
+        raft.timers.setImmediate(uuid + '@async', function async() {
           if (err) {
             raft.emit('error', err);
 
@@ -569,17 +575,17 @@ class Raft extends EventEmitter {
         if (raft.leader === raft.nodes[i].address) {
           nodes.push(raft.nodes[i]);
         }
-      break;
+        break;
 
       case Raft.FOLLOWER: for (; i < length; i++)
         if (raft.leader !== raft.nodes[i].address) {
           nodes.push(raft.nodes[i]);
         }
-      break;
+        break;
 
       case Raft.CHILD:
         Array.prototype.push.apply(nodes, raft.nodes);
-      break;
+        break;
 
       default: for (; i < length; i++)
         if (who === raft.nodes[i].address) {
@@ -740,11 +746,11 @@ class Raft extends EventEmitter {
   async packet(type, data) {
     var raft = this
       , wrapped = {
-        state:   raft.state,    // Are we're a leader, candidate or follower.
-        term:    raft.term,     // Our current term so we can find mis matches.
+        state: raft.state,    // Are we're a leader, candidate or follower.
+        term: raft.term,     // Our current term so we can find mis matches.
         address: raft.address,  // Address of the sender.
-        type:    type,          // Message type.
-        leader:  raft.leader,   // Who is our leader.
+        type: type,          // Message type.
+        leader: raft.leader,   // Who is our leader.
       };
 
     //
@@ -765,17 +771,17 @@ class Raft extends EventEmitter {
    * @return {Promise<object>} Description
    * @private
    */
-  async appendPacket (entry) {
+  async appendPacket(entry) {
     const raft = this;
     const last = await raft.log.getEntryInfoBefore(entry);
-    return{
-        state:   raft.state,    // Are we're a leader, candidate or follower.
-        term:    raft.term,     // Our current term so we can find mis matches.
-        address: raft.address,  // Address of the sender.
-        type:    'append',      // Append message type .
-        leader:  raft.leader,   // Who is our leader.
-        data: [entry], // The command to send to the other nodes
-        last,
+    return {
+      state: raft.state,    // Are we're a leader, candidate or follower.
+      term: raft.term,     // Our current term so we can find mis matches.
+      address: raft.address,  // Address of the sender.
+      type: 'append',      // Append message type .
+      leader: raft.leader,   // Who is our leader.
+      data: [entry], // The command to send to the other nodes
+      last,
     };
   }
 
@@ -793,11 +799,11 @@ class Raft extends EventEmitter {
 
     var raft = this
       , node = {
-        'Log':            raft.Log,
-        'election max':   raft.election.max,
-        'election min':   raft.election.min,
-        'heartbeat':      raft.beat,
-        'threshold':      raft.threshold,
+        'Log': raft.Log,
+        'election max': raft.election.max,
+        'election min': raft.election.min,
+        'heartbeat': raft.beat,
+        'threshold': raft.threshold,
       }, key;
 
     for (key in node) {
@@ -916,7 +922,7 @@ class Raft extends EventEmitter {
   async command(command) {
     let raft = this;
 
-    if(raft.state !== Raft.LEADER) {
+    if (raft.state !== Raft.LEADER) {
       const err = new Error('NOTLEADER');
 
       err.leaderAddress = raft.leader;
@@ -937,7 +943,7 @@ class Raft extends EventEmitter {
    * @param {Entry[]} entries Entries to commit
    * @return {Promise<void>}
    */
-  async commitEntries (entries) {
+  async commitEntries(entries) {
     entries.forEach(async (entry) => {
       await this.log.commit(entry.index)
       this.emit('commit', entry.command);
