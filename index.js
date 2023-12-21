@@ -234,6 +234,19 @@ class Raft extends EventEmitter {
           if (raft.log) {
             const { index, term } = await raft.log.getLastInfo();
 
+            console.debug({
+              myAddress: raft.address,
+              myTerm: raft.term,
+              myState: raft.state,
+              myLastIndex: index,
+              myLastTerm: term,
+              packetAddress: packet.address,
+              packetTerm: packet.term,
+              packetState: packet.state,
+              packetLastIndex: packet.last.index,
+              packetLastTerm: packet.last.term,
+              voteAgainst: !(index > packet.last.index && term >= packet.last.term),
+            });
             if (index > packet.last.index && term >= packet.last.term) {
               raft.emit('vote', packet, false);
 
