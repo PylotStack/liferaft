@@ -108,7 +108,22 @@ class Log {
           resolve(entries);
         })
     });
+  }
 
+  getEntriesBefore(index) {
+    const entries = [];
+    return new Promise((resolve, reject) => {
+      this.db.createReadStream({lt: index, reverse: true})
+        .on('data', data => {
+          entries.push(data.value);
+        })
+        .on('error', err => {
+          reject(err)
+        })
+        .on('end', () => {
+          resolve(entries);
+        })
+    });
   }
 
   /**
@@ -121,6 +136,13 @@ class Log {
    */
   async removeEntriesAfter (index) {
     const entries = await this.getEntriesAfter(index)
+    return Promise.all(entries.map(entry => {
+      return this.db.del(entry.index);
+    }));
+  }
+
+  async removeEntriesBefore (index) {
+    const entries = await this.getEntriesBefore(index)
     return Promise.all(entries.map(entry => {
       return this.db.del(entry.index);
     }));
